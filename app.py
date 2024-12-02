@@ -45,7 +45,7 @@ def generate(image_input, audio_input, pose_input, width, height, length, steps,
     torch.cuda.empty_cache()
     torch.cuda.ipc_collect()
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    save_dir = Path("outputs")
+    save_dir = Path("../fssd/outputs")
     save_dir.mkdir(exist_ok=True, parents=True)
 
     ############# model_init started #############
@@ -206,20 +206,25 @@ def generate(image_input, audio_input, pose_input, width, height, length, steps,
     video_clip_sig.write_videofile(save_name + "_sig.mp4", codec="libx264", audio_codec="aac", threads=2)
     video_output = save_name + "_sig.mp4"
     seed_text = gr.update(visible=True, value=seed)
-    return video_output, seed_text
+    output_dir = gr.update(visible=True, value=save_dir)
+    return video_output, seed_text, output_dir
 
+css="""
+    .tag {
+        display: inline-block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+"""
 
-with gr.Blocks(theme=gr.themes.Soft()) as demo:
+with gr.Blocks(theme=gr.themes.Soft(),title="EchoMimicV2",css=css) as demo:
     gr.Markdown("""
             <div>
                 <h2 style="font-size: 30px;text-align: center;">EchoMimicV2</h2>
             </div>
             <div style="text-align: center;">
-                <a href="https://github.com/antgroup/echomimic_v2">🌐 Github</a> |
-                <a href="https://arxiv.org/abs/2411.10061">📜 arXiv </a>
-            </div>
-            <div style="text-align: center; font-weight: bold; color: red;">
-                ⚠️ 该演示仅供学术研究和体验使用。
+                <a href="https://github.com/antgroup/echomimic_v2"><img src="https://img.shields.io/github/stars/antgroup/echomimic_v2?style=social" alt="🌐 Github" class="tag"></a> 
+                <a href="https://arxiv.org/abs/2411.10061"><img src="https://img.shields.io/badge/arXiv-2411.10061-b31b1b.svg" alt="📜 arXiv" class="tag"></a>
             </div>
             
             """)
@@ -250,6 +255,7 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
             with gr.Column():
                 video_output = gr.Video(label="输出视频")
                 seed_text = gr.Textbox(label="种子", interactive=False, visible=False)
+                output_dir = gr.Text(label="输出文件夹",value="fssd/outputs",interactive=False)
         gr.Examples(
             examples=[
                 ["EMTD_dataset/ref_imgs_by_FLUX/man/0001.png", "assets/halfbody_demo/audio/chinese/echomimicv2_man.wav"],
@@ -267,11 +273,19 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
     generate_button.click(
         generate,
         inputs=[image_input, audio_input, pose_input, width, height, length, steps, sample_rate, cfg, fps, context_frames, context_overlap, quantization_input, seed],
-        outputs=[video_output, seed_text],
+        outputs=[video_output, seed_text, output_dir],
     )
 
 
 
 if __name__ == "__main__":
+    home = os.getenv("HOME")
+    fssd = f"{home}/fssd"
+    outputs = f"{home}/fssd/outputs"
+    gradio_temp = f"{home}/fssd/gradio_temp"
+    
     demo.queue()
-    demo.launch(inbrowser=True)
+    demo.launch(
+        inbrowser=True, server_name="0.0.0.0",
+        allowed_paths=[fssd,outputs,gradio_temp]
+    )
